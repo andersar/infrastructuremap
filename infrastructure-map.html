@@ -307,7 +307,7 @@
             #control-panel {
                 width: 250px;
             }
-            
+
             .info-panel {
                 width: 250px;
             }
@@ -319,13 +319,13 @@
                 left: 20px;
                 right: 20px;
             }
-            
+
             .info-panel {
                 width: calc(100vw - 40px);
                 left: 20px;
                 right: 20px;
             }
-            
+
             #status-bar {
                 flex-direction: column;
                 gap: 5px;
@@ -348,6 +348,20 @@
     <div id="map"></div>
 
     <div id="control-panel">
+        <div class="control-section">
+            <h3>Map Style</h3>
+            <div class="filter-group">
+                <div class="filter-item">
+                    <input type="radio" name="basemap" id="basemap-osmfr" checked onchange="changeBaseMap('osmfr')">
+                    <label for="basemap-osmfr">OSM France</label>
+                </div>
+                <div class="filter-item">
+                    <input type="radio" name="basemap" id="basemap-hot" onchange="changeBaseMap('hot')">
+                    <label for="basemap-hot">Humanitarian</label>
+                </div>
+            </div>
+        </div>
+
         <div class="control-section">
             <h3>Transportation</h3>
             <div class="filter-group">
@@ -528,6 +542,7 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // Map initialization
         const map = L.map('map', {
             center: [40.7128, -74.0060],
             zoom: 12,
@@ -536,16 +551,35 @@
             worldCopyJump: true
         });
 
-        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        // COMPLIANT BASE LAYERS - Using only servers that allow embedding
+        // OpenStreetMap France - explicitly allows use in web applications
+        const osmfrLayer = L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Tiles courtesy of <a href="https://openstreetmap.fr/" target="_blank">OpenStreetMap France</a>'
         });
 
-        const osmHumanitarian = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Tiles style by <a href="https://www.hotosm.org/">Humanitarian OpenStreetMap Team</a> (HOT)'
+        // Humanitarian OpenStreetMap Team - allows use with attribution
+        const hotLayer = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Tiles style by <a href="https://www.hotosm.org/" target="_blank">Humanitarian OpenStreetMap Team</a> (HOT)'
         });
 
-        osmLayer.addTo(map);
+        // Default to OSM France (compliant)
+        let currentBaseLayer = osmfrLayer;
+        osmfrLayer.addTo(map);
 
+        // Function to change base map
+        function changeBaseMap(layerType) {
+            if (layerType === 'osmfr') {
+                map.removeLayer(currentBaseLayer);
+                osmfrLayer.addTo(map);
+                currentBaseLayer = osmfrLayer;
+            } else if (layerType === 'hot') {
+                map.removeLayer(currentBaseLayer);
+                hotLayer.addTo(map);
+                currentBaseLayer = hotLayer;
+            }
+        }
+
+        // Layer groups for each infrastructure type
         const layers = {
             'motorway': L.layerGroup(),
             'trunk': L.layerGroup(),
@@ -569,8 +603,10 @@
             'data-center': L.layerGroup()
         };
 
+        // Feature counts
         const featureCounts = {};
 
+        // Color schemes for different infrastructure types
         const colors = {
             motorway: '#e94560', trunk: '#ff6b6b', primary: '#ff9f1c', secondary: '#ffd166',
             railway: '#ff6b6b', airport: '#06d6a0', port: '#1e90ff',
@@ -580,6 +616,7 @@
             'telecom-tower': '#8b5cf6', 'data-center': '#8b5cf6'
         };
 
+        // Icon definitions
         const icons = {
             airport: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
             port: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-cyan.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
@@ -596,19 +633,23 @@
 
         const defaultIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-yellow.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] });
 
+        // Overpass API endpoint
         const overpassUrl = 'https://overpass-api.de/api/interpreter';
         let currentBounds = null;
 
+        // Initialize feature counts
         function initFeatureCounts() {
             Object.keys(layers).forEach(key => { featureCounts[key] = 0; document.getElementById(`count-${key}`).textContent = '0'; });
         }
 
+        // Update feature count display
         function updateFeatureCount(layerName, count) {
             featureCounts[layerName] = count;
             const element = document.getElementById(`count-${layerName}`);
             if (element) element.textContent = count;
         }
 
+        // Get Overpass query for a specific layer
         function getOverpassQuery(layerName, bounds) {
             const s = bounds.getSouth(), w = bounds.getWest(), n = bounds.getNorth(), e = bounds.getEast();
             const q = {
