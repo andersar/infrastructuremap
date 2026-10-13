@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infrastructure Map - OpenStreetMap</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+        }
+
+        #header {
+            background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            position: relative;
+            z-index: 1000;
+        }
+
+        #header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #e94560;
+        }
+
+        #header .subtitle {
+            font-size: 0.9rem;
+            color: #a0a0a0;
+        }
+
+        #map {
+            position: absolute;
+            top: 60px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 100;
+        }
+
+        #control-panel {
+            position: absolute;
+            top: 70px;
+            left: 20px;
+            width: 280px;
+            background: rgba(22, 33, 62, 0.95);
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            z-index: 1001;
+            max-height: calc(100vh - 90px);
+            overflow-y: auto;
+        }
+
+        #control-panel::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #control-panel::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.1);
+        }
+
+        #control-panel::-webkit-scrollbar-thumb {
+            background: #0f3460;
+            border-radius: 3px;
+        }
+
+        .control-section {
+            margin-bottom: 15px;
+        }
+
+        .control-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-section h3 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #a0a0a0;
+            margin-bottom: 8px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .filter-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: rgba(15, 52, 96, 0.3);
+        }
+
+        .filter-item:hover {
+            background: rgba(15, 52, 96, 0.5);
+        }
+
+        .filter-item input[type="checkbox"] {
+            margin-right: 10px;
+            accent-color: #e94560;
+            width: 16px;
+            height: 16px;
+        }
+
+        .filter-item label {
+            font-size: 0.9rem;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .filter-item .count {
+            font-size: 0.75rem;
+            color: #888;
+            background: rgba(0,0,0,0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(233, 69, 96, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: #e0e0e0;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(22, 33, 62, 0.95);
+            padding: 20px 30px;
+            border-radius: 12px;
+            display: none;
+            align-items: center;
+            gap: 15px;
+            z-index: 2000;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+
+        #loading.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid rgba(233, 69, 96, 0.2);
+            border-top-color: #e94560;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        #status-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: rgba(22, 33, 62, 0.95);
+            padding: 12px 15px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: #a0a0a0;
+            z-index: 1001;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+        }
+
+        #zoom-info {
+            font-weight: 500;
+            color: #e0e0e0;
+        }
+
+        .legend {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.8rem;
+        }
+
+        .legend-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 3px;
+            border-radius: 2px;
+            margin-right: 10px;
+        }
+
+        .info-panel {
+            position: absolute;
+            top: 70px;
+            right: 20px;
+            width: 300px;
+            background: rgba(22, 33, 62, 0.95);
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            z-index: 1001;
+            display: none;
+        }
+
+        .info-panel.active {
+            display: block;
+        }
+
+        .info-panel h3 {
+            color: #e94560;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .info-panel .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 1.5rem;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .info-panel .close-btn:hover {
+            color: #e94560;
+        }
+
+        .info-content {
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: #e0e0e0;
+        }
+
+        .info-content .tag {
+            display: inline-block;
+            background: rgba(233, 69, 96, 0.2);
+            color: #e94560;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            margin-right: 5px;
+            margin-bottom: 3px;
+        }
+
+        @media (max-width: 900px) {
+            #control-panel {
+                width: 250px;
+            }
+            
+            .info-panel {
+                width: 250px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            #control-panel {
+                width: calc(100vw - 40px);
+                left: 20px;
+                right: 20px;
+            }
+            
+            .info-panel {
+                width: calc(100vw - 40px);
+                left: 20px;
+                right: 20px;
+            }
+            
+            #status-bar {
+                flex-direction: column;
+                gap: 5px;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <div>
+            <h1>Infrastructure Map</h1>
+            <p class="subtitle">OpenStreetMap Data Explorer</p>
+        </div>
+        <div>
+            <button class="btn btn-secondary" onclick="resetView()">Reset View</button>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <div id="control-panel">
+        <div class="control-section">
+            <h3>Transportation</h3>
+            <div class="filter-group">
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-motorway" checked onchange="toggleLayer('motorway')">
+                    <label for="filter-motorway">Motorways</label>
+                    <span class="count" id="count-motorway">0</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-trunk" checked onchange="toggleLayer('trunk')">
+                    <label for="filter-trunk">Trunk Roads</label>
+                    <span class="count" id="count-trunk">0</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-primary" checked onchange="toggleLayer('primary')">
+                    <label for="filter-primary">Primary Roads</label>
+                    <span class="count" id="count-primary">0</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-secondary" checked onchange="toggleLayer('secondary')">
+                    <label for="filter-secondary">Secondary Roads</label>
+                    <span class="count" id="count-secondary">0</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-railway" checked onchange="toggleLayer('railway')">
+                    <label for="filter-railway">Railways</label>
+                    <span class="count" id="count-railway">0</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-airport" checked onchange="toggleLayer('airport')">
+                    <label for="filter-airport">Airports</label>
+                    <span class="count" id="count-airport">0</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-port" checked onchange="toggleLayer('port')">
+                    <label for="filter-port">Ports & Harbors</label>
+                    <span class="count" id="count-port">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-section">
+            <h3>Energy Infrastructure</h3>
+            <div class="filter-group">
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-power-line" checked onchange="toggleLayer('power-line')">
+                    <label for="filter-power-line">Power Lines</label>
+                    <span class="count" id="count-power-line">0</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-substation" checked onchange="toggleLayer('substation')">
+                    <label for="filter-substation">Substations</label>
+                    <span class="count" id="count-substation">0</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-solar" checked onchange="toggleLayer('solar')">
+                    <label for="filter-solar">Solar Farms</label>
+                    <span class="count" id="count-solar">0</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-wind" checked onchange="toggleLayer('wind')">
+                    <label for="filter-wind">Wind Turbines</label>
+                    <span class="count" id="count-wind">0</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-hydropower" checked onchange="toggleLayer('hydropower')">
+                    <label for="filter-hydropower">Hydropower</label>
+                    <span class="count" id="count-hydropower">0</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-power-plant" checked onchange="toggleLayer('power-plant')">
+                    <label for="filter-power-plant">Power Plants</label>
+                    <span class="count" id="count-power-plant">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-section">
+            <h3>Water & Utilities</h3>
+            <div class="filter-group">
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-water-treatment" checked onchange="toggleLayer('water-treatment')">
+                    <label for="filter-water-treatment">Water Treatment</label>
+                    <span class="count" id="count-water-treatment">0</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-wastewater" checked onchange="toggleLayer('wastewater')">
+                    <label for="filter-wastewater">Wastewater</label>
+                    <span class="count" id="count-wastewater">0</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-pipeline" checked onchange="toggleLayer('pipeline')">
+                    <label for="filter-pipeline">Pipelines</label>
+                    <span class="count" id="count-pipeline">0</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-dam" checked onchange="toggleLayer('dam')">
+                    <label for="filter-dam">Dams</label>
+                    <span class="count" id="count-dam">0</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-reservoir" checked onchange="toggleLayer('reservoir')">
+                    <label for="filter-reservoir">Reservoirs</label>
+                    <span class="count" id="count-reservoir">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-section">
+            <h3>Telecom & Communication</h3>
+            <div class="filter-group">
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-telecom-tower" checked onchange="toggleLayer('telecom-tower')">
+                    <label for="filter-telecom-tower">Telecom Towers</label>
+                    <span class="count" id="count-telecom-tower">0</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-data-center" checked onchange="toggleLayer('data-center')">
+                    <label for="filter-data-center">Data Centers</label>
+                    <span class="count" id="count-data-center">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-section">
+            <h3>Actions</h3>
+            <div class="filter-group">
+                <button class="btn btn-primary" onclick="loadAllData()" style="width: 100%;">
+                    Load All Infrastructure
+                </button>
+                <button class="btn btn-secondary" onclick="clearAllLayers()" style="width: 100%; margin-top: 5px;">
+                    Clear Map
+                </button>
+            </div>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #e94560;"></div>
+                <span>Motorways</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ff9f1c;"></div>
+                <span>Power Lines</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #2ed573;"></div>
+                <span>Solar/Wind</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #1e90ff;"></div>
+                <span>Hydropower</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ff6b6b;"></div>
+                <span>Railways</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="loading">
+        <div class="spinner"></div>
+        <span>Loading infrastructure data...</span>
+    </div>
+
+    <div id="status-bar">
+        <div id="zoom-info">Zoom: 12 | Lat: 0 | Lng: 0</div>
+        <div id="attribution">
+            &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" style="color: #666;">OpenStreetMap</a> contributors | Data via <a href="https://overpass-api.de/" target="_blank" style="color: #666;">Overpass API</a>
+        </div>
+    </div>
+
+    <div class="info-panel" id="feature-info-panel">
+        <button class="close-btn" onclick="closeInfoPanel()">&times;</button>
+        <h3 id="feature-info-title">Feature Info</h3>
+        <div class="info-content" id="feature-info-content"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const map = L.map('map', {
+            center: [40.7128, -74.0060],
+            zoom: 12,
+            minZoom: 2,
+            maxZoom: 19,
+            worldCopyJump: true
+        });
+
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        });
+
+        const osmHumanitarian = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Tiles style by <a href="https://www.hotosm.org/">Humanitarian OpenStreetMap Team</a> (HOT)'
+        });
+
+        osmLayer.addTo(map);
+
+        const layers = {
+            'motorway': L.layerGroup(),
+            'trunk': L.layerGroup(),
+            'primary': L.layerGroup(),
+            'secondary': L.layerGroup(),
+            'railway': L.layerGroup(),
+            'airport': L.layerGroup(),
+            'port': L.layerGroup(),
+            'power-line': L.layerGroup(),
+            'substation': L.layerGroup(),
+            'solar': L.layerGroup(),
+            'wind': L.layerGroup(),
+            'hydropower': L.layerGroup(),
+            'power-plant': L.layerGroup(),
+            'water-treatment': L.layerGroup(),
+            'wastewater': L.layerGroup(),
+            'pipeline': L.layerGroup(),
+            'dam': L.layerGroup(),
+            'reservoir': L.layerGroup(),
+            'telecom-tower': L.layerGroup(),
+            'data-center': L.layerGroup()
+        };
+
+        const featureCounts = {};
+
+        const colors = {
+            motorway: '#e94560', trunk: '#ff6b6b', primary: '#ff9f1c', secondary: '#ffd166',
+            railway: '#ff6b6b', airport: '#06d6a0', port: '#1e90ff',
+            'power-line': '#ff9f1c', substation: '#ffd166', solar: '#2ed573', wind: '#2ed573',
+            hydropower: '#1e90ff', 'power-plant': '#ff6b6b', 'water-treatment': '#06d6a0',
+            wastewater: '#06d6a0', pipeline: '#8b5cf6', dam: '#06d6a0', reservoir: '#1e90ff',
+            'telecom-tower': '#8b5cf6', 'data-center': '#8b5cf6'
+        };
+
+        const icons = {
+            airport: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
+            port: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-cyan.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
+            substation: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
+            solar: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
+            wind: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-lightgreen.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
+            hydropower: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
+            'power-plant': L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
+            'water-treatment': L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
+            dam: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-cyan.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
+            'telecom-tower': L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-grey.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
+            'data-center': L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-black.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] })
+        };
+
+        const defaultIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-yellow.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] });
+
+        const overpassUrl = 'https://overpass-api.de/api/interpreter';
+        let currentBounds = null;
+
+        function initFeatureCounts() {
+            Object.keys(layers).forEach(key => { featureCounts[key] = 0; document.getElementById(`count-${key}`).textContent = '0'; });
+        }
+
+        function updateFeatureCount(layerName, count) {
+            featureCounts[layerName] = count;
+            const element = document.getElementById(`count-${layerName}`);
+            if (element) element.textContent = count;
+        }
+
+        function getOverpassQuery(layerName, bounds) {
+            const s = bounds.getSouth(), w = bounds.getWest(), n = bounds.getNorth(), e = bounds.getEast();
+            const q = {
+                'motorway': `[out:json];(way["highway"="motorway"](${s},${w},${n},${e});relation["highway"="motorway"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+                'trunk': `[out:json];(way["highway"="trunk"](${s},${w},${n},${e});relation["highway"="trunk"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+                'primary': `[out:json];(way["highway"="primary"](${s},${w},${n},${e});relation["highway"="primary"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+                'secondary': `[out:json];(way["highway"="secondary"](${s},${w},${n},${e});relation["highway"="secondary"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+                'railway': `[out:json];(way["railway"="rail"](${s},${w},${n},${e});relation["railway"="rail"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+                'airport': `[out:json];(node["aerodrome"="airport"](${s},${w},${n},${e});way["aerodrome"="airport"](${s},${w},${n},${e});relation["aerodrome"="airport"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+                'port': `[out:json];(node["harbour"](${s},${w},${n},${e});way["harbour"](${s},${w},${n},${e});relation["harbour"](${s},${w},${n},${e});node["amenity"="port"](${s},${w},${n},${e});way["amenity"="port"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+                'power-line': `[out:json];(way["power"="line"](${s},${w},${n},${e});relation["power"="line"](${s},${w},${n},${e});way["power"="cable"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+                'substation': `[out:json];(node["power"="substation"](${s},${w},${n},${e});way["power"="substation"](${s},${w},${n},${e});relation["power"="substation"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+                'solar': `[out:json];(node["power"="generator"]["generator:source"="solar"](${s},${w},${n},${e});way["power"="generator"]["generator:source"="solar"](${s},${w},${n},${e});relation["power"="generator"]["generator:source"="solar"](${s},${w},${n},${e});node["power"="plant"]["power:source"="solar"](${s},${w},${n},${e});way["power"="plant"]["power:source"="solar"](${s},${w},${n},${e});node["landuse"="solar_farm"](${s},${w},${n},${e});way["landuse"="solar_farm"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+                'wind': `[out:json];(node["power"="generator"]["generator:source"="wind"](${s},${w},${n},${e});node["power"="wind"](${s},${w},${n},${e});way["power"="wind"](${s},${w},${n},${e});node["man_made"="windmill"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+                'hydropower': `[out:json];(node["power"="generator"]["generator:source"="hydro"](${s},${w},${n},${e});way["power"="generator"]["generator:source"="hydro"](${s},${w},${n},${e});relation["power"="generator"]["generator:source"="hydro"](${s},${w},${n},${e});node["power"="plant"]["power:source"="hydro"](${s},${w},${n},${e});way["power"="plant"]["power:source"="hydro"](${s},${w},${n},${e});node["water"="dam"]["power"="generator"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+                'power-plant': `[out:json];(node["power"="plant"](${s},${w},${n},${e});way["power"="plant"](${s},${w},${n},${e});relation["power"="plant"](${s},${w},${n},${e});node["power"="station"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+                'water-treatment': `[out:json];(node["amenity"="water_treatment"](${s},${w},${n},${e});way["amenity"="water_treatment"](${s},${w},${n},${e});node["water"="treatment"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+                'wastewater': `[out:json];(node["amenity"="wastewater_plant"](${s},${w},${n},${e});way["amenity"="wastewater_plant"](${s},${w},${n},${e});node["water"="wastewater"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+                'pipeline': `[out:json];(way["man_made"="pipeline"](${s},${w},${n},${e});relation["man_made"="pipeline"](${s},${w},${n},${e});way["pipeline"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+                'dam': `[out:json];(node["water"="dam"](${s},${w},${n},${e});way["water"="dam"](${s},${w},${n},${e});relation["water"="dam"](${s},${w},${n},${e});node["man_made"="dam"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+                'reservoir': `[out:json];(way["natural"="water"]["water"="reservoir"](${s},${w},${n},${e});relation["natural"="water"]["water"="reservoir"](${s},${w},${n},${e});way["landuse"="reservoir"](${s},${w},${n},${e});node["man_made"="reservoir"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+                'telecom-tower': `[out:json];(node["man_made"="communications_tower"](${s},${w},${n},${e});node["man_made"="tower"]["tower:type"="communication"](${s},${w},${n},${e});node["telecom"="tower"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+                'data-center': `[out:json];(node["amenity"="data_center"](${s},${w},${n},${e});way["amenity"="data_center"](${s},${w},${n},${e});node["building"="data_center"](${s},${w},${n},${e}););out body;>;out skel qt;`
+            };
+            return q[layerName];
+        }
+
+        function processOverpassResponse(layerName, data) {
+            if (!data || !data.elements) return 0;
+            const layer = layers[layerName], color = colors[layerName], icon = icons[layerName] || defaultIcon;
+            let count = 0;
+            data.elements.forEach(element => {
+                if (element.type === 'node' && element.lat && element.lon) {
+                    const marker = L.marker([element.lat, element.lon], { icon: icon });
+                    marker.bindPopup(createPopupContent(element));
+                    marker.on('click', () => showFeatureInfo(element));
+                    layer.addLayer(marker); count++;
+                } else if (element.type === 'way' && element.geometry) {
+                    const coords = element.geometry.map(g => [g.lat, g.lon]);
+                    const polyline = L.polyline(coords, { color: color, weight: 2, opacity: 0.8 });
+                    polyline.bindPopup(createPopupContent(element));
+                    polyline.on('click', () => showFeatureInfo(element));
+                    layer.addLayer(polyline);
+                    count += coords.length > 0 ? 1 : 0;
+                } else if (element.type === 'relation' && element.members) count++;
+            });
+            return count;
+        }
+
+        function createPopupContent(element) {
+            let content = `<b>${getElementName(element)}</b><br>`;
+            if (element.tags) {
+                for (const [key, value] of Object.entries(element.tags)) {
+                    if (key !== 'name' && key !== 'source' && key !== 'created_by') {
+                        content += `<small><b>${key}:</b> ${value}</small><br>`;
+                    }
+                }
+            }
+            if (element.type === 'node' && element.lat && element.lon) {
+                content += `<small>Lat: ${element.lat.toFixed(4)}, Lng: ${element.lon.toFixed(4)}</small>`;
+            }
+            return content;
+        }
+
+        function getElementName(element) {
+            if (element.tags && element.tags.name) return element.tags.name;
+            if (element.tags && element.tags['name:en']) return element.tags['name:en'];
+            if (element.type === 'way' || element.type === 'relation') return element.type.charAt(0).toUpperCase() + element.type.slice(1);
+            return 'Unnamed Feature';
+        }
+
+        function showFeatureInfo(element) {
+            const panel = document.getElementById('feature-info-panel');
+            const title = document.getElementById('feature-info-title');
+            const content = document.getElementById('feature-info-content');
+            title.textContent = getElementName(element);
+            let html = '<div>';
+            if (element.tags) {
+                for (const [key, value] of Object.entries(element.tags)) {
+                    if (key === 'name' || key === 'name:en') continue;
+                    html += `<span class="tag">${key}: ${value}</span>`;
+                }
+            }
+            if (element.type === 'node' && element.lat && element.lon) {
+                html += `<br><br><b>Coordinates:</b> ${element.lat.toFixed(6)}, ${element.lon.toFixed(6)}`;
+            }
+            if (element.id) html += `<br><br><small>OSM ID: ${element.id}</small>`;
+            html += '</div>'; content.innerHTML = html;
+            panel.classList.add('active');
+        }
+
+        function closeInfoPanel() {
+            document.getElementById('feature-info-panel').classList.remove('active');
+        }
+
+        async function fetchOverpassData(layerName, bounds) {
+            const query = getOverpassQuery(layerName, bounds);
+            if (!query) return 0;
+            try {
+                const response = await fetch(overpassUrl, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `data=${encodeURIComponent(query)}` });
+                if (!response.ok) { console.error(`Overpass API error for ${layerName}: ${response.status}`); return 0; }
+                const data = await response.json();
+                const count = processOverpassResponse(layerName, data);
+                updateFeatureCount(layerName, count);
+                return count;
+            } catch (error) { console.error(`Error fetching ${layerName} data:`, error); return 0; }
+        }
+
+        async function loadLayerData(layerName) {
+            if (!currentBounds) return;
+            showLoading(true);
+            try {
+                layers[layerName].clearLayers();
+                const count = await fetchOverpassData(layerName, currentBounds);
+                if (document.getElementById(`filter-${layerName}`).checked) layers[layerName].addTo(map);
+                return count;
+            } catch (error) { console.error(`Error loading ${layerName}:`, error); }
+            finally { showLoading(false); }
+        }
+
+        function toggleLayer(layerName) {
+            const checkbox = document.getElementById(`filter-${layerName}`), layer = layers[layerName];
+            if (checkbox.checked) {
+                if (layer.getLayers().length === 0 && currentBounds) loadLayerData(layerName);
+                layer.addTo(map);
+            } else map.removeLayer(layer);
+        }
+
+        async function loadAllData() {
+            if (!currentBounds) return;
+            showLoading(true);
+            try {
+                Object.keys(layers).forEach(key => { layers[key].clearLayers(); updateFeatureCount(key, 0); });
+                const activeLayers = Object.keys(layers).filter(key => document.getElementById(`filter-${key}`).checked);
+                for (let i = 0; i < activeLayers.length; i += 3) {
+                    const batch = activeLayers.slice(i, i + 3);
+                    await Promise.all(batch.map(layerName => loadLayerData(layerName)));
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+            } catch (error) { console.error('Error loading all data:', error); }
+            finally { showLoading(false); }
+        }
+
+        function clearAllLayers() {
+            Object.keys(layers).forEach(key => { layers[key].clearLayers(); updateFeatureCount(key, 0); });
+            closeInfoPanel();
+        }
+
+        function resetView() { map.setView([40.7128, -74.0060], 12); }
+
+        function showLoading(show) {
+            const loading = document.getElementById('loading');
+            if (show) loading.classList.add('active'); else loading.classList.remove('active');
+        }
+
+        function updateStatusBar() {
+            const zoom = map.getZoom(), center = map.getCenter();
+            document.getElementById('zoom-info').textContent = `Zoom: ${zoom} | Lat: ${center.lat.toFixed(4)} | Lng: ${center.lng.toFixed(4)}`;
+        }
+
+        let moveTimeout = null;
+        function handleMapMove() {
+            clearTimeout(moveTimeout);
+            moveTimeout = setTimeout(() => { currentBounds = map.getBounds(); updateStatusBar(); }, 500);
+        }
+
+        function init() {
+            initFeatureCounts();
+            map.on('move', handleMapMove);
+            map.on('zoom', () => updateStatusBar());
+            currentBounds = map.getBounds();
+            updateStatusBar();
+            setTimeout(() => { ['motorway', 'primary', 'railway', 'power-line', 'airport'].forEach(layerName => { if (document.getElementById(`filter-${layerName}`).checked) loadLayerData(layerName); }); }, 500);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
