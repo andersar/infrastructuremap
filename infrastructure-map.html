@@ -541,291 +541,376 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        // Map initialization
-        const map = L.map('map', {
-            center: [40.7128, -74.0060],
-            zoom: 12,
-            minZoom: 2,
-            maxZoom: 19,
-            worldCopyJump: true
+<script>
+    // Map initialization
+    const map = L.map('map', {
+        center: [40.7128, -74.0060],
+        zoom: 12,
+        minZoom: 2,
+        maxZoom: 19,
+        worldCopyJump: true
+    });
+
+    // COMPLIANT BASE LAYERS
+    const osmfrLayer = L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Tiles courtesy of <a href="https://openstreetmap.fr/" target="_blank">OpenStreetMap France</a>'
+    });
+
+    const hotLayer = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Tiles style by <a href="https://www.hotosm.org/" target="_blank">Humanitarian OpenStreetMap Team</a> (HOT)'
+    });
+
+    let currentBaseLayer = osmfrLayer;
+    osmfrLayer.addTo(map);
+
+    function changeBaseMap(layerType) {
+        map.removeLayer(currentBaseLayer);
+        if (layerType === 'osmfr') {
+            osmfrLayer.addTo(map);
+            currentBaseLayer = osmfrLayer;
+        } else {
+            hotLayer.addTo(map);
+            currentBaseLayer = hotLayer;
+        }
+    }
+
+    // Layer groups
+    const layers = {
+        'motorway': L.layerGroup(),
+        'trunk': L.layerGroup(),
+        'primary': L.layerGroup(),
+        'secondary': L.layerGroup(),
+        'railway': L.layerGroup(),
+        'airport': L.layerGroup(),
+        'port': L.layerGroup(),
+        'power-line': L.layerGroup(),
+        'substation': L.layerGroup(),
+        'solar': L.layerGroup(),
+        'wind': L.layerGroup(),
+        'hydropower': L.layerGroup(),
+        'power-plant': L.layerGroup(),
+        'water-treatment': L.layerGroup(),
+        'wastewater': L.layerGroup(),
+        'pipeline': L.layerGroup(),
+        'dam': L.layerGroup(),
+        'reservoir': L.layerGroup(),
+        'telecom-tower': L.layerGroup(),
+        'data-center': L.layerGroup()
+    };
+
+    const featureCounts = {};
+    const colors = {
+        motorway: '#e94560', trunk: '#ff6b6b', primary: '#ff9f1c', secondary: '#ffd166',
+        railway: '#ff6b6b', airport: '#06d6a0', port: '#1e90ff',
+        'power-line': '#ff9f1c', substation: '#ffd166', solar: '#2ed573', wind: '#2ed573',
+        hydropower: '#1e90ff', 'power-plant': '#ff6b6b', 'water-treatment': '#06d6a0',
+        wastewater: '#06d6a0', pipeline: '#8b5cf6', dam: '#06d6a0', reservoir: '#1e90ff',
+        'telecom-tower': '#8b5cf6', 'data-center': '#8b5cf6'
+    };
+
+    const icons = {
+        airport: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
+        port: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-cyan.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
+        substation: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
+        solar: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
+        wind: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-lightgreen.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
+        hydropower: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
+        'power-plant': L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
+        'water-treatment': L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
+        dam: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-cyan.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
+        'telecom-tower': L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-grey.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
+        'data-center': L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-black.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] })
+    };
+
+    const defaultIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-yellow.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] });
+
+    const overpassUrl = 'https://overpass-api.de/api/interpreter';
+    let currentBounds = null;
+    let isLoading = false;
+
+    function initFeatureCounts() {
+        Object.keys(layers).forEach(key => {
+            featureCounts[key] = 0;
+            const el = document.getElementById(`count-${key}`);
+            if (el) el.textContent = '0';
         });
+    }
 
-        // COMPLIANT BASE LAYERS - Using only servers that allow embedding
-        // OpenStreetMap France - explicitly allows use in web applications
-        const osmfrLayer = L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Tiles courtesy of <a href="https://openstreetmap.fr/" target="_blank">OpenStreetMap France</a>'
+    function updateFeatureCount(layerName, count) {
+        featureCounts[layerName] = count;
+        const el = document.getElementById(`count-${layerName}`);
+        if (el) el.textContent = count;
+    }
+
+    function getOverpassQuery(layerName, bounds) {
+        const s = bounds.getSouth(), w = bounds.getWest(), n = bounds.getNorth(), e = bounds.getEast();
+        const q = {
+            'motorway': `[out:json];(way["highway"="motorway"](${s},${w},${n},${e});relation["highway"="motorway"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+            'trunk': `[out:json];(way["highway"="trunk"](${s},${w},${n},${e});relation["highway"="trunk"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+            'primary': `[out:json];(way["highway"="primary"](${s},${w},${n},${e});relation["highway"="primary"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+            'secondary': `[out:json];(way["highway"="secondary"](${s},${w},${n},${e});relation["highway"="secondary"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+            'railway': `[out:json];(way["railway"="rail"](${s},${w},${n},${e});relation["railway"="rail"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+            'airport': `[out:json];(node["aerodrome"="airport"](${s},${w},${n},${e});way["aerodrome"="airport"](${s},${w},${n},${e});relation["aerodrome"="airport"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+            'port': `[out:json];(node["harbour"](${s},${w},${n},${e});way["harbour"](${s},${w},${n},${e});relation["harbour"](${s},${w},${n},${e});node["amenity"="port"](${s},${w},${n},${e});way["amenity"="port"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+            'power-line': `[out:json];(way["power"="line"](${s},${w},${n},${e});relation["power"="line"](${s},${w},${n},${e});way["power"="cable"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+            'substation': `[out:json];(node["power"="substation"](${s},${w},${n},${e});way["power"="substation"](${s},${w},${n},${e});relation["power"="substation"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+            'solar': `[out:json];(node["power"="generator"]["generator:source"="solar"](${s},${w},${n},${e});way["power"="generator"]["generator:source"="solar"](${s},${w},${n},${e});relation["power"="generator"]["generator:source"="solar"](${s},${w},${n},${e});node["power"="plant"]["power:source"="solar"](${s},${w},${n},${e});way["power"="plant"]["power:source"="solar"](${s},${w},${n},${e});node["landuse"="solar_farm"](${s},${w},${n},${e});way["landuse"="solar_farm"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+            'wind': `[out:json];(node["power"="generator"]["generator:source"="wind"](${s},${w},${n},${e});node["power"="wind"](${s},${w},${n},${e});way["power"="wind"](${s},${w},${n},${e});node["man_made"="windmill"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+            'hydropower': `[out:json];(node["power"="generator"]["generator:source"="hydro"](${s},${w},${n},${e});way["power"="generator"]["generator:source"="hydro"](${s},${w},${n},${e});relation["power"="generator"]["generator:source"="hydro"](${s},${w},${n},${e});node["power"="plant"]["power:source"="hydro"](${s},${w},${n},${e});way["power"="plant"]["power:source"="hydro"](${s},${w},${n},${e});node["water"="dam"]["power"="generator"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+            'power-plant': `[out:json];(node["power"="plant"](${s},${w},${n},${e});way["power"="plant"](${s},${w},${n},${e});relation["power"="plant"](${s},${w},${n},${e});node["power"="station"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+            'water-treatment': `[out:json];(node["amenity"="water_treatment"](${s},${w},${n},${e});way["amenity"="water_treatment"](${s},${w},${n},${e});node["water"="treatment"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+            'wastewater': `[out:json];(node["amenity"="wastewater_plant"](${s},${w},${n},${e});way["amenity"="wastewater_plant"](${s},${w},${n},${e});node["water"="wastewater"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+            'pipeline': `[out:json];(way["man_made"="pipeline"](${s},${w},${n},${e});relation["man_made"="pipeline"](${s},${w},${n},${e});way["pipeline"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+            'dam': `[out:json];(node["water"="dam"](${s},${w},${n},${e});way["water"="dam"](${s},${w},${n},${e});relation["water"="dam"](${s},${w},${n},${e});node["man_made"="dam"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+            'reservoir': `[out:json];(way["natural"="water"]["water"="reservoir"](${s},${w},${n},${e});relation["natural"="water"]["water"="reservoir"](${s},${w},${n},${e});way["landuse"="reservoir"](${s},${w},${n},${e});node["man_made"="reservoir"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+            'telecom-tower': `[out:json];(node["man_made"="communications_tower"](${s},${w},${n},${e});node["man_made"="tower"]["tower:type"="communication"](${s},${w},${n},${e});node["telecom"="tower"](${s},${w},${n},${e}););out body;>;out skel qt;`,
+            'data-center': `[out:json];(node["amenity"="data_center"](${s},${w},${n},${e});way["amenity"="data_center"](${s},${w},${n},${e});node["building"="data_center"](${s},${w},${n},${e}););out body;>;out skel qt;`
+        };
+        return q[layerName];
+    }
+
+    function processOverpassResponse(layerName, data) {
+        if (!data || !data.elements) return 0;
+        const layer = layers[layerName];
+        const color = colors[layerName];
+        const icon = icons[layerName] || defaultIcon;
+        let count = 0;
+        data.elements.forEach(element => {
+            if (element.type === 'node' && element.lat && element.lon) {
+                const marker = L.marker([element.lat, element.lon], { icon: icon });
+                marker.bindPopup(createPopupContent(element));
+                marker.on('click', () => showFeatureInfo(element));
+                layer.addLayer(marker);
+                count++;
+            } else if (element.type === 'way' && element.geometry) {
+                const coords = element.geometry.map(g => [g.lat, g.lon]);
+                const polyline = L.polyline(coords, { color: color, weight: 2, opacity: 0.8 });
+                polyline.bindPopup(createPopupContent(element));
+                polyline.on('click', () => showFeatureInfo(element));
+                layer.addLayer(polyline);
+                count += coords.length > 0 ? 1 : 0;
+            } else if (element.type === 'relation' && element.members) {
+                count++;
+            }
         });
+        return count;
+    }
 
-        // Humanitarian OpenStreetMap Team - allows use with attribution
-        const hotLayer = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Tiles style by <a href="https://www.hotosm.org/" target="_blank">Humanitarian OpenStreetMap Team</a> (HOT)'
-        });
-
-        // Default to OSM France (compliant)
-        let currentBaseLayer = osmfrLayer;
-        osmfrLayer.addTo(map);
-
-        // Function to change base map
-        function changeBaseMap(layerType) {
-            if (layerType === 'osmfr') {
-                map.removeLayer(currentBaseLayer);
-                osmfrLayer.addTo(map);
-                currentBaseLayer = osmfrLayer;
-            } else if (layerType === 'hot') {
-                map.removeLayer(currentBaseLayer);
-                hotLayer.addTo(map);
-                currentBaseLayer = hotLayer;
+    function createPopupContent(element) {
+        let content = `<b>${getElementName(element)}</b><br>`;
+        if (element.tags) {
+            for (const [key, value] of Object.entries(element.tags)) {
+                if (key !== 'name' && key !== 'source' && key !== 'created_by') {
+                    content += `<small><b>${key}:</b> ${value}</small><br>`;
+                }
             }
         }
-
-        // Layer groups for each infrastructure type
-        const layers = {
-            'motorway': L.layerGroup(),
-            'trunk': L.layerGroup(),
-            'primary': L.layerGroup(),
-            'secondary': L.layerGroup(),
-            'railway': L.layerGroup(),
-            'airport': L.layerGroup(),
-            'port': L.layerGroup(),
-            'power-line': L.layerGroup(),
-            'substation': L.layerGroup(),
-            'solar': L.layerGroup(),
-            'wind': L.layerGroup(),
-            'hydropower': L.layerGroup(),
-            'power-plant': L.layerGroup(),
-            'water-treatment': L.layerGroup(),
-            'wastewater': L.layerGroup(),
-            'pipeline': L.layerGroup(),
-            'dam': L.layerGroup(),
-            'reservoir': L.layerGroup(),
-            'telecom-tower': L.layerGroup(),
-            'data-center': L.layerGroup()
-        };
-
-        // Feature counts
-        const featureCounts = {};
-
-        // Color schemes for different infrastructure types
-        const colors = {
-            motorway: '#e94560', trunk: '#ff6b6b', primary: '#ff9f1c', secondary: '#ffd166',
-            railway: '#ff6b6b', airport: '#06d6a0', port: '#1e90ff',
-            'power-line': '#ff9f1c', substation: '#ffd166', solar: '#2ed573', wind: '#2ed573',
-            hydropower: '#1e90ff', 'power-plant': '#ff6b6b', 'water-treatment': '#06d6a0',
-            wastewater: '#06d6a0', pipeline: '#8b5cf6', dam: '#06d6a0', reservoir: '#1e90ff',
-            'telecom-tower': '#8b5cf6', 'data-center': '#8b5cf6'
-        };
-
-        // Icon definitions
-        const icons = {
-            airport: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
-            port: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-cyan.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
-            substation: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
-            solar: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
-            wind: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-lightgreen.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
-            hydropower: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
-            'power-plant': L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
-            'water-treatment': L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
-            dam: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-cyan.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
-            'telecom-tower': L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-grey.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] }),
-            'data-center': L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-black.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] })
-        };
-
-        const defaultIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-yellow.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] });
-
-        // Overpass API endpoint
-        const overpassUrl = 'https://overpass-api.de/api/interpreter';
-        let currentBounds = null;
-
-        // Initialize feature counts
-        function initFeatureCounts() {
-            Object.keys(layers).forEach(key => { featureCounts[key] = 0; document.getElementById(`count-${key}`).textContent = '0'; });
+        if (element.type === 'node' && element.lat && element.lon) {
+            content += `<small>Lat: ${element.lat.toFixed(4)}, Lng: ${element.lon.toFixed(4)}</small>`;
         }
+        return content;
+    }
 
-        // Update feature count display
-        function updateFeatureCount(layerName, count) {
-            featureCounts[layerName] = count;
-            const element = document.getElementById(`count-${layerName}`);
-            if (element) element.textContent = count;
+    function getElementName(element) {
+        if (element.tags && element.tags.name) return element.tags.name;
+        if (element.tags && element.tags['name:en']) return element.tags['name:en'];
+        if (element.type === 'way' || element.type === 'relation') return element.type.charAt(0).toUpperCase() + element.type.slice(1);
+        return 'Unnamed Feature';
+    }
+
+    function showFeatureInfo(element) {
+        const panel = document.getElementById('feature-info-panel');
+        const title = document.getElementById('feature-info-title');
+        const content = document.getElementById('feature-info-content');
+        title.textContent = getElementName(element);
+        let html = '<div>';
+        if (element.tags) {
+            for (const [key, value] of Object.entries(element.tags)) {
+                if (key === 'name' || key === 'name:en') continue;
+                html += `<span class="tag">${key}: ${value}</span>`;
+            }
         }
-
-        // Get Overpass query for a specific layer
-        function getOverpassQuery(layerName, bounds) {
-            const s = bounds.getSouth(), w = bounds.getWest(), n = bounds.getNorth(), e = bounds.getEast();
-            const q = {
-                'motorway': `[out:json];(way["highway"="motorway"](${s},${w},${n},${e});relation["highway"="motorway"](${s},${w},${n},${e}););out body;>;out skel qt;`,
-                'trunk': `[out:json];(way["highway"="trunk"](${s},${w},${n},${e});relation["highway"="trunk"](${s},${w},${n},${e}););out body;>;out skel qt;`,
-                'primary': `[out:json];(way["highway"="primary"](${s},${w},${n},${e});relation["highway"="primary"](${s},${w},${n},${e}););out body;>;out skel qt;`,
-                'secondary': `[out:json];(way["highway"="secondary"](${s},${w},${n},${e});relation["highway"="secondary"](${s},${w},${n},${e}););out body;>;out skel qt;`,
-                'railway': `[out:json];(way["railway"="rail"](${s},${w},${n},${e});relation["railway"="rail"](${s},${w},${n},${e}););out body;>;out skel qt;`,
-                'airport': `[out:json];(node["aerodrome"="airport"](${s},${w},${n},${e});way["aerodrome"="airport"](${s},${w},${n},${e});relation["aerodrome"="airport"](${s},${w},${n},${e}););out body;>;out skel qt;`,
-                'port': `[out:json];(node["harbour"](${s},${w},${n},${e});way["harbour"](${s},${w},${n},${e});relation["harbour"](${s},${w},${n},${e});node["amenity"="port"](${s},${w},${n},${e});way["amenity"="port"](${s},${w},${n},${e}););out body;>;out skel qt;`,
-                'power-line': `[out:json];(way["power"="line"](${s},${w},${n},${e});relation["power"="line"](${s},${w},${n},${e});way["power"="cable"](${s},${w},${n},${e}););out body;>;out skel qt;`,
-                'substation': `[out:json];(node["power"="substation"](${s},${w},${n},${e});way["power"="substation"](${s},${w},${n},${e});relation["power"="substation"](${s},${w},${n},${e}););out body;>;out skel qt;`,
-                'solar': `[out:json];(node["power"="generator"]["generator:source"="solar"](${s},${w},${n},${e});way["power"="generator"]["generator:source"="solar"](${s},${w},${n},${e});relation["power"="generator"]["generator:source"="solar"](${s},${w},${n},${e});node["power"="plant"]["power:source"="solar"](${s},${w},${n},${e});way["power"="plant"]["power:source"="solar"](${s},${w},${n},${e});node["landuse"="solar_farm"](${s},${w},${n},${e});way["landuse"="solar_farm"](${s},${w},${n},${e}););out body;>;out skel qt;`,
-                'wind': `[out:json];(node["power"="generator"]["generator:source"="wind"](${s},${w},${n},${e});node["power"="wind"](${s},${w},${n},${e});way["power"="wind"](${s},${w},${n},${e});node["man_made"="windmill"](${s},${w},${n},${e}););out body;>;out skel qt;`,
-                'hydropower': `[out:json];(node["power"="generator"]["generator:source"="hydro"](${s},${w},${n},${e});way["power"="generator"]["generator:source"="hydro"](${s},${w},${n},${e});relation["power"="generator"]["generator:source"="hydro"](${s},${w},${n},${e});node["power"="plant"]["power:source"="hydro"](${s},${w},${n},${e});way["power"="plant"]["power:source"="hydro"](${s},${w},${n},${e});node["water"="dam"]["power"="generator"](${s},${w},${n},${e}););out body;>;out skel qt;`,
-                'power-plant': `[out:json];(node["power"="plant"](${s},${w},${n},${e});way["power"="plant"](${s},${w},${n},${e});relation["power"="plant"](${s},${w},${n},${e});node["power"="station"](${s},${w},${n},${e}););out body;>;out skel qt;`,
-                'water-treatment': `[out:json];(node["amenity"="water_treatment"](${s},${w},${n},${e});way["amenity"="water_treatment"](${s},${w},${n},${e});node["water"="treatment"](${s},${w},${n},${e}););out body;>;out skel qt;`,
-                'wastewater': `[out:json];(node["amenity"="wastewater_plant"](${s},${w},${n},${e});way["amenity"="wastewater_plant"](${s},${w},${n},${e});node["water"="wastewater"](${s},${w},${n},${e}););out body;>;out skel qt;`,
-                'pipeline': `[out:json];(way["man_made"="pipeline"](${s},${w},${n},${e});relation["man_made"="pipeline"](${s},${w},${n},${e});way["pipeline"](${s},${w},${n},${e}););out body;>;out skel qt;`,
-                'dam': `[out:json];(node["water"="dam"](${s},${w},${n},${e});way["water"="dam"](${s},${w},${n},${e});relation["water"="dam"](${s},${w},${n},${e});node["man_made"="dam"](${s},${w},${n},${e}););out body;>;out skel qt;`,
-                'reservoir': `[out:json];(way["natural"="water"]["water"="reservoir"](${s},${w},${n},${e});relation["natural"="water"]["water"="reservoir"](${s},${w},${n},${e});way["landuse"="reservoir"](${s},${w},${n},${e});node["man_made"="reservoir"](${s},${w},${n},${e}););out body;>;out skel qt;`,
-                'telecom-tower': `[out:json];(node["man_made"="communications_tower"](${s},${w},${n},${e});node["man_made"="tower"]["tower:type"="communication"](${s},${w},${n},${e});node["telecom"="tower"](${s},${w},${n},${e}););out body;>;out skel qt;`,
-                'data-center': `[out:json];(node["amenity"="data_center"](${s},${w},${n},${e});way["amenity"="data_center"](${s},${w},${n},${e});node["building"="data_center"](${s},${w},${n},${e}););out body;>;out skel qt;`
-            };
-            return q[layerName];
+        if (element.type === 'node' && element.lat && element.lon) {
+            html += `<br><br><b>Coordinates:</b> ${element.lat.toFixed(6)}, ${element.lon.toFixed(6)}`;
         }
+        if (element.id) html += `<br><br><small>OSM ID: ${element.id}</small>`;
+        html += '</div>';
+        content.innerHTML = html;
+        panel.classList.add('active');
+    }
 
-        function processOverpassResponse(layerName, data) {
-            if (!data || !data.elements) return 0;
-            const layer = layers[layerName], color = colors[layerName], icon = icons[layerName] || defaultIcon;
-            let count = 0;
-            data.elements.forEach(element => {
-                if (element.type === 'node' && element.lat && element.lon) {
-                    const marker = L.marker([element.lat, element.lon], { icon: icon });
-                    marker.bindPopup(createPopupContent(element));
-                    marker.on('click', () => showFeatureInfo(element));
-                    layer.addLayer(marker); count++;
-                } else if (element.type === 'way' && element.geometry) {
-                    const coords = element.geometry.map(g => [g.lat, g.lon]);
-                    const polyline = L.polyline(coords, { color: color, weight: 2, opacity: 0.8 });
-                    polyline.bindPopup(createPopupContent(element));
-                    polyline.on('click', () => showFeatureInfo(element));
-                    layer.addLayer(polyline);
-                    count += coords.length > 0 ? 1 : 0;
-                } else if (element.type === 'relation' && element.members) count++;
+    function closeInfoPanel() {
+        document.getElementById('feature-info-panel').classList.remove('active');
+    }
+
+    function showLoading(show) {
+        const loading = document.getElementById('loading');
+        if (show) loading.classList.add('active');
+        else loading.classList.remove('active');
+    }
+
+    function updateStatusBar() {
+        const zoom = map.getZoom();
+        const center = map.getCenter();
+        document.getElementById('zoom-info').textContent = `Zoom: ${zoom} | Lat: ${center.lat.toFixed(4)} | Lng: ${center.lng.toFixed(4)}`;
+    }
+
+    // FIXED: Ensure currentBounds is set immediately
+    currentBounds = map.getBounds();
+    updateStatusBar();
+
+    // FIXED: Load data for initially checked layers
+    function loadInitialData() {
+        const initialLayers = ['motorway', 'primary', 'railway', 'power-line', 'airport'];
+        initialLayers.forEach(layerName => {
+            const checkbox = document.getElementById(`filter-${layerName}`);
+            if (checkbox && checkbox.checked) {
+                loadLayerData(layerName);
+            }
+        });
+    }
+
+    async function fetchOverpassData(layerName, bounds) {
+        const query = getOverpassQuery(layerName, bounds);
+        if (!query) return 0;
+
+        showLoading(true);
+        try {
+            const response = await fetch(overpassUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `data=${encodeURIComponent(query)}`
             });
+
+            if (!response.ok) {
+                console.error(`Overpass API error for ${layerName}: ${response.status}`);
+                return 0;
+            }
+
+            const data = await response.json();
+            const count = processOverpassResponse(layerName, data);
+            updateFeatureCount(layerName, count);
             return count;
+        } catch (error) {
+            console.error(`Error fetching ${layerName} data:`, error);
+            return 0;
+        } finally {
+            showLoading(false);
         }
+    }
 
-        function createPopupContent(element) {
-            let content = `<b>${getElementName(element)}</b><br>`;
-            if (element.tags) {
-                for (const [key, value] of Object.entries(element.tags)) {
-                    if (key !== 'name' && key !== 'source' && key !== 'created_by') {
-                        content += `<small><b>${key}:</b> ${value}</small><br>`;
-                    }
-                }
+    // FIXED: Proper toggle layer function
+    async function toggleLayer(layerName) {
+        const checkbox = document.getElementById(`filter-${layerName}`);
+        const layer = layers[layerName];
+
+        if (!checkbox || !layer) return;
+
+        if (checkbox.checked) {
+            // If layer is empty and we have bounds, load data
+            if (layer.getLayers().length === 0 && currentBounds) {
+                await loadLayerData(layerName);
             }
-            if (element.type === 'node' && element.lat && element.lon) {
-                content += `<small>Lat: ${element.lat.toFixed(4)}, Lng: ${element.lon.toFixed(4)}</small>`;
-            }
-            return content;
-        }
-
-        function getElementName(element) {
-            if (element.tags && element.tags.name) return element.tags.name;
-            if (element.tags && element.tags['name:en']) return element.tags['name:en'];
-            if (element.type === 'way' || element.type === 'relation') return element.type.charAt(0).toUpperCase() + element.type.slice(1);
-            return 'Unnamed Feature';
-        }
-
-        function showFeatureInfo(element) {
-            const panel = document.getElementById('feature-info-panel');
-            const title = document.getElementById('feature-info-title');
-            const content = document.getElementById('feature-info-content');
-            title.textContent = getElementName(element);
-            let html = '<div>';
-            if (element.tags) {
-                for (const [key, value] of Object.entries(element.tags)) {
-                    if (key === 'name' || key === 'name:en') continue;
-                    html += `<span class="tag">${key}: ${value}</span>`;
-                }
-            }
-            if (element.type === 'node' && element.lat && element.lon) {
-                html += `<br><br><b>Coordinates:</b> ${element.lat.toFixed(6)}, ${element.lon.toFixed(6)}`;
-            }
-            if (element.id) html += `<br><br><small>OSM ID: ${element.id}</small>`;
-            html += '</div>'; content.innerHTML = html;
-            panel.classList.add('active');
-        }
-
-        function closeInfoPanel() {
-            document.getElementById('feature-info-panel').classList.remove('active');
-        }
-
-        async function fetchOverpassData(layerName, bounds) {
-            const query = getOverpassQuery(layerName, bounds);
-            if (!query) return 0;
-            try {
-                const response = await fetch(overpassUrl, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `data=${encodeURIComponent(query)}` });
-                if (!response.ok) { console.error(`Overpass API error for ${layerName}: ${response.status}`); return 0; }
-                const data = await response.json();
-                const count = processOverpassResponse(layerName, data);
-                updateFeatureCount(layerName, count);
-                return count;
-            } catch (error) { console.error(`Error fetching ${layerName} data:`, error); return 0; }
-        }
-
-        async function loadLayerData(layerName) {
-            if (!currentBounds) return;
-            showLoading(true);
-            try {
-                layers[layerName].clearLayers();
-                const count = await fetchOverpassData(layerName, currentBounds);
-                if (document.getElementById(`filter-${layerName}`).checked) layers[layerName].addTo(map);
-                return count;
-            } catch (error) { console.error(`Error loading ${layerName}:`, error); }
-            finally { showLoading(false); }
-        }
-
-        function toggleLayer(layerName) {
-            const checkbox = document.getElementById(`filter-${layerName}`), layer = layers[layerName];
-            if (checkbox.checked) {
-                if (layer.getLayers().length === 0 && currentBounds) loadLayerData(layerName);
+            // Add to map
+            if (!map.hasLayer(layer)) {
                 layer.addTo(map);
-            } else map.removeLayer(layer);
+            }
+        } else {
+            // Remove from map
+            if (map.hasLayer(layer)) {
+                map.removeLayer(layer);
+            }
+        }
+    }
+
+    async function loadLayerData(layerName) {
+        if (!currentBounds) {
+            currentBounds = map.getBounds();
         }
 
-        async function loadAllData() {
-            if (!currentBounds) return;
-            showLoading(true);
-            try {
-                Object.keys(layers).forEach(key => { layers[key].clearLayers(); updateFeatureCount(key, 0); });
-                const activeLayers = Object.keys(layers).filter(key => document.getElementById(`filter-${key}`).checked);
-                for (let i = 0; i < activeLayers.length; i += 3) {
-                    const batch = activeLayers.slice(i, i + 3);
-                    await Promise.all(batch.map(layerName => loadLayerData(layerName)));
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                }
-            } catch (error) { console.error('Error loading all data:', error); }
-            finally { showLoading(false); }
+        showLoading(true);
+        try {
+            // Clear existing layer
+            layers[layerName].clearLayers();
+            updateFeatureCount(layerName, 0);
+
+            // Fetch new data
+            const count = await fetchOverpassData(layerName, currentBounds);
+
+            // Add layer to map if checkbox is checked
+            const checkbox = document.getElementById(`filter-${layerName}`);
+            if (checkbox && checkbox.checked && !map.hasLayer(layers[layerName])) {
+                layers[layerName].addTo(map);
+            }
+
+            return count;
+        } catch (error) {
+            console.error(`Error loading ${layerName}:`, error);
+            return 0;
+        } finally {
+            showLoading(false);
         }
+    }
 
-        function clearAllLayers() {
-            Object.keys(layers).forEach(key => { layers[key].clearLayers(); updateFeatureCount(key, 0); });
-            closeInfoPanel();
+    async function loadAllData() {
+        showLoading(true);
+        try {
+            // Clear all layers
+            Object.keys(layers).forEach(key => {
+                layers[key].clearLayers();
+                updateFeatureCount(key, 0);
+            });
+
+            // Load all checked layers
+            const activeLayers = Object.keys(layers).filter(
+                key => document.getElementById(`filter-${key}`)?.checked
+            );
+
+            // Load in batches to avoid rate limiting
+            for (let i = 0; i < activeLayers.length; i += 3) {
+                const batch = activeLayers.slice(i, i + 3);
+                await Promise.all(batch.map(layerName => loadLayerData(layerName)));
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        } catch (error) {
+            console.error('Error loading all data:', error);
+        } finally {
+            showLoading(false);
         }
+    }
 
-        function resetView() { map.setView([40.7128, -74.0060], 12); }
+    function clearAllLayers() {
+        Object.keys(layers).forEach(key => {
+            layers[key].clearLayers();
+            updateFeatureCount(key, 0);
+        });
+        closeInfoPanel();
+    }
 
-        function showLoading(show) {
-            const loading = document.getElementById('loading');
-            if (show) loading.classList.add('active'); else loading.classList.remove('active');
-        }
+    function resetView() {
+        map.setView([40.7128, -74.0060], 12);
+        currentBounds = map.getBounds();
+        updateStatusBar();
+    }
 
-        function updateStatusBar() {
-            const zoom = map.getZoom(), center = map.getCenter();
-            document.getElementById('zoom-info').textContent = `Zoom: ${zoom} | Lat: ${center.lat.toFixed(4)} | Lng: ${center.lng.toFixed(4)}`;
-        }
-
-        let moveTimeout = null;
-        function handleMapMove() {
-            clearTimeout(moveTimeout);
-            moveTimeout = setTimeout(() => { currentBounds = map.getBounds(); updateStatusBar(); }, 500);
-        }
-
-        function init() {
-            initFeatureCounts();
-            map.on('move', handleMapMove);
-            map.on('zoom', () => updateStatusBar());
+    let moveTimeout = null;
+    map.on('move', () => {
+        clearTimeout(moveTimeout);
+        moveTimeout = setTimeout(() => {
             currentBounds = map.getBounds();
             updateStatusBar();
-            setTimeout(() => { ['motorway', 'primary', 'railway', 'power-line', 'airport'].forEach(layerName => { if (document.getElementById(`filter-${layerName}`).checked) loadLayerData(layerName); }); }, 500);
-        }
+        }, 300);
+    });
 
-        window.onload = init;
-    </script>
+    map.on('zoom', updateStatusBar);
+
+    // Initialize after map is ready
+    map.whenReady(() => {
+        initFeatureCounts();
+        currentBounds = map.getBounds();
+        updateStatusBar();
+        loadInitialData();
+    });
+</script>
 </body>
 </html>
